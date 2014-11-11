@@ -1,46 +1,24 @@
-usb = require "usb"
-express = require 'express'
-exphbs  = require 'express-handlebars'
+express = require "express"
+exphbs  = require "express-handlebars"
+env = require "node-env-file"
 
+tokbox =
+  key: env.apiKey
+  session: process.env.sessionID
+  token: process.env.token
 
-class Missile
+env(__dirname + '/.env');
 
-  productVendor: 0x2123
-  productId: 0x1010
-  bmRequestType: 0x21
-  bRequest: 0x09
-  wValue: 0x0
-  wIndex: 0x0
-  commands:
-    down: { data: 0x01, duration: 400 }
-    up: { data: 0x02, duration: 400 }
-    left: { data: 0x04, duration: 400 }
-    right: { data: 0x08, duration: 400 }
-    fire: { data: 0x10, duration: 1600 }
-    stop: { data: 0x20 }
+app = express()
+app.engine "handlebars", exphbs(defaultLayout: "main")
+app.set "view engine", "handlebars"
 
-  generateCommandBuffers: (command) ->
-    for name, config of @commands
-      buffer = new Buffer([0x02, config.data, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
-      @commands[name].buffer = buffer
+app.get "/", (req, res) =>
+  res.render "home",
+    key: 'mooooo'
+    session: tokbox.session
+    token: tokbox.token
+  return
 
-  getDevice: ->
-    @device = usb.findByIds(@productVendor, @productId)
-    @device.open()
+app.listen 3000
 
-  constructor: ->
-    @getDevice()
-    @generateCommandBuffers()
-
-  send: (command, duration) ->
-    duration = @commands[command].duration unless duration?
-    @device.controlTransfer(@bmRequestType, @bRequest, @wValue, @wIndex, @commands[command].buffer)
-
-    if duration != false
-      setTimeout =>
-        @send('stop')
-      , duration
-
-
-missile = new Missile()
-missile.send('fire')
